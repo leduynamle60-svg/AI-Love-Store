@@ -112,18 +112,21 @@ async def on_ready():
 
 async def load_extensions():
     """Load các cog từ các file riêng"""
+    print("🔍 [DEBUG] Đang load music...")
     try:
         await bot.load_extension('music')
         print(f"✅ Đã load music")
     except Exception as e:
         print(f"❌ Lỗi load music: {e}")
 
+    print("🔍 [DEBUG] Đang load createvoice...")
     try:
         await bot.load_extension('createvoice')
         print(f"✅ Đã load createvoice")
     except Exception as e:
         print(f"❌ Lỗi load createvoice: {e}")
 
+    print("🔍 [DEBUG] Đang load consult...")
     # Load consult với groq key
     try:
         from consult import setup as consult_setup
@@ -131,13 +134,21 @@ async def load_extensions():
         print(f"✅ Đã load consult")
     except Exception as e:
         print(f"❌ Lỗi load consult: {e}")
+    print("🔍 [DEBUG] load_extensions() hoàn tất.")
 
 async def main():
     async with bot:
         print("🚀 Đang khởi động bot...")
+        print("🔍 [DEBUG] Bắt đầu load_extensions()...")
         await load_extensions()
         print("✅ Đã nạp xong module!")
-        await bot.start(TOKEN)
+        print("🔍 [DEBUG] Sắp gọi bot.start(TOKEN)...")
+        print(f"🔍 [DEBUG] TOKEN có tồn tại không: {bool(TOKEN)}, độ dài: {len(TOKEN) if TOKEN else 0}")
+        try:
+            await bot.start(TOKEN)
+        except Exception as e:
+            print(f"🔍 ❌ [DEBUG] bot.start() raise lỗi: {type(e).__name__}: {e}")
+            raise
 
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask, daemon=True)
