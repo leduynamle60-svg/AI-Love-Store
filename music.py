@@ -5,6 +5,7 @@ import asyncio
 from collections import deque
 import json
 import os
+import shutil
 from discord.ext import tasks
 import signal
 import time
@@ -319,9 +320,23 @@ class Music(commands.Cog):
         # từ browser đã đăng nhập YouTube), dùng nó để vượt qua chặn này.
         # Đường dẫn lấy từ biến môi trường COOKIES_FILE để linh hoạt — nếu không set
         # hoặc file không tồn tại thì bỏ qua, không gây lỗi.
-        cookies_path = os.getenv("COOKIES_FILE", "cookies.txt")
-        if os.path.exists(cookies_path):
-            ydl_opts['cookiefile'] = cookies_path
+        #
+        # FIX QUAN TRỌNG: yt-dlp cần GHI lại file cookies sau khi dùng (để lưu cookie
+        # mới nhận từ session). Render's Secret Files (/etc/secrets/) là READ-ONLY,
+        # nên phải copy file cookie ra một nơi ghi được (/tmp) trước khi đưa cho yt-dlp,
+        # nếu không sẽ lỗi "[Errno 30] Read-only file system".
+        cookies_source = os.getenv("COOKIES_FILE", "cookies.txt")
+        if os.path.exists(cookies_source):
+            writable_cookies_path = "/tmp/yt_dlp_cookies.txt"
+            try:
+                # Chỉ copy nếu chưa có bản /tmp, hoặc bản gốc mới hơn (tránh copy lại
+                # mỗi lần gọi, vì hàm này có thể được gọi rất nhiều lần).
+                if (not os.path.exists(writable_cookies_path)
+                        or os.path.getmtime(cookies_source) > os.path.getmtime(writable_cookies_path)):
+                    shutil.copyfile(cookies_source, writable_cookies_path)
+                ydl_opts['cookiefile'] = writable_cookies_path
+            except Exception as e:
+                print(f"⚠️ Lỗi copy cookies sang /tmp: {e}. Bỏ qua cookies lần này.")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(search_query, download=False)
             if 'entries' in info:
