@@ -313,6 +313,15 @@ class Music(commands.Cog):
             # ngay sau khi tìm được nhạc.
             'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
         }
+
+        # FIX: trên server cloud (Render, v.v.) YouTube hay chặn IP datacenter với
+        # lỗi "Sign in to confirm you're not a bot". Nếu có file cookies.txt (export
+        # từ browser đã đăng nhập YouTube), dùng nó để vượt qua chặn này.
+        # Đường dẫn lấy từ biến môi trường COOKIES_FILE để linh hoạt — nếu không set
+        # hoặc file không tồn tại thì bỏ qua, không gây lỗi.
+        cookies_path = os.getenv("COOKIES_FILE", "cookies.txt")
+        if os.path.exists(cookies_path):
+            ydl_opts['cookiefile'] = cookies_path
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(search_query, download=False)
             if 'entries' in info:
