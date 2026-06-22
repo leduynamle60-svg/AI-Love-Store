@@ -35,7 +35,7 @@ def get_audio_url(query):
         'noplaylist': True,
         'extract_flat': False,
         'remote_components': ['ejs:github'],
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+        'extractor_args': {'youtube': {'player_client': ['tv', 'android', 'web']}},
     }
 
     cookies_source = os.getenv("COOKIES_FILE", "cookies.txt")
@@ -115,7 +115,7 @@ def test_ffmpeg(audio_url, duration_seconds=10):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Cách dùng: python test_music2.py \"tên bài hát hoặc link\"")
+        print("Cách dùng: python test_music.py \"tên bài hát hoặc link\"")
         sys.exit(1)
 
     query = " ".join(sys.argv[1:])
