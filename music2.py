@@ -34,6 +34,7 @@ def get_audio_url(query):
         'default_search': 'auto',
         'noplaylist': True,
         'extract_flat': False,
+        'js_runtimes': {'deno': {}},
         'remote_components': ['ejs:github'],
         'extractor_args': {'youtube': {'player_client': ['tv', 'android', 'web']}},
     }
