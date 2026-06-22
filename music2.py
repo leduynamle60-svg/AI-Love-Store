@@ -157,6 +157,33 @@ def get_audio_url(query):
     return result
 
 
+def test_ffmpeg_basic():
+    """
+    Test ffmpeg với lệnh đơn giản nhất có thể (-version), không liên quan
+    network/input gì cả. Nếu CÁI NÀY cũng segfault, lỗi nằm ở chính binary
+    ffmpeg không tương thích với CPU/kernel của container Render (ví dụ thiếu
+    instruction set, hoặc binary build cho kiến trúc khác). Nếu lệnh này OK
+    nhưng test_ffmpeg (với URL) segfault, lỗi nằm ở việc xử lý network input.
+    """
+    print(f"\n[TEST] 🧪 Test ffmpeg cơ bản (chỉ -version, không input)...")
+    try:
+        result = subprocess.run([FFMPEG_PATH, "-version"], capture_output=True, text=True, timeout=10)
+        print(f"[TEST] 🧪 Return code: {result.returncode}")
+        print(f"[TEST] 🧪 stdout (200 ký tự đầu): {result.stdout[:200]}")
+        if result.returncode != 0:
+            print(f"[TEST] 🧪 stderr: {result.stderr}")
+    except Exception as e:
+        print(f"[TEST] 🧪 ❌ Lỗi: {type(e).__name__}: {e}")
+
+    # Test thêm: thử với cùng kiến trúc CPU mà imageio_ffmpeg detect
+    try:
+        import platform
+        print(f"[TEST] 🧪 platform.machine() = {platform.machine()}")
+        print(f"[TEST] 🧪 platform.platform() = {platform.platform()}")
+    except Exception as e:
+        print(f"[TEST] 🧪 Lỗi lấy platform info: {e}")
+
+
 def test_ffmpeg(audio_url, duration_seconds=10):
     """
     Chạy ffmpeg trực tiếp (không qua discord.py) để decode link audio trong
@@ -199,6 +226,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     query = " ".join(sys.argv[1:])
+
+    # FIX: test ffmpeg cơ bản TRƯỚC khi thử với URL thật, để biết lỗi segfault
+    # nằm ở binary nói chung (không tương thích CPU/kernel Render) hay chỉ
+    # xảy ra khi xử lý network input cụ thể.
+    test_ffmpeg_basic()
 
     try:
         audio = get_audio_url(query)
