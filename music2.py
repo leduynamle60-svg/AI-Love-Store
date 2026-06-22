@@ -23,9 +23,41 @@ except ImportError:
 import yt_dlp
 
 
+def find_deno_path():
+    """
+    Tìm đường dẫn deno thực tế bằng shutil.which (giống cách PATH thật được
+    dùng), in ra để debug, và trả về path đó để truyền rõ ràng vào js_runtimes
+    — vì chỉ để js_runtimes: {'deno': {}} có thể không đủ nếu yt-dlp/subprocess
+    của nó không kế thừa đúng PATH đang có trong tiến trình Python hiện tại.
+    """
+    deno_path = shutil.which("deno")
+    print(f"[TEST] 🔎 shutil.which('deno') = {deno_path}")
+
+    # Fallback: kiểm tra trực tiếp đường dẫn cài đặt mặc định của deno trên Linux
+    fallback_path = os.path.expanduser("~/.deno/bin/deno")
+    print(f"[TEST] 🔎 Fallback path tồn tại? {os.path.exists(fallback_path)} ({fallback_path})")
+
+    chosen = deno_path or (fallback_path if os.path.exists(fallback_path) else None)
+    print(f"[TEST] 🔎 Sẽ dùng deno path: {chosen}")
+
+    if chosen:
+        try:
+            result = subprocess.run([chosen, "--version"], capture_output=True, text=True, timeout=10)
+            print(f"[TEST] 🔎 Gọi thử '{chosen} --version' -> return code {result.returncode}")
+            print(f"[TEST] 🔎 stdout: {result.stdout.strip()}")
+            if result.stderr:
+                print(f"[TEST] 🔎 stderr: {result.stderr.strip()}")
+        except Exception as e:
+            print(f"[TEST] ❌ Lỗi khi gọi thử deno: {e}")
+
+    return chosen
+
+
 def get_audio_url(query):
     print(f"[TEST] 🔍 Đang tìm: {query}")
     search_query = f"ytsearch:{query}" if not query.startswith("http") else query
+
+    deno_path = find_deno_path()
 
     ydl_opts = {
         'format': 'worstaudio[abr>=48]/bestaudio[abr<=96]/bestaudio/best',
@@ -34,7 +66,10 @@ def get_audio_url(query):
         'default_search': 'auto',
         'noplaylist': True,
         'extract_flat': False,
-        'js_runtimes': {'deno': {}},
+        # FIX: truyền rõ path tuyệt đối của deno thay vì để {} trống, vì subprocess
+        # mà yt-dlp tạo ra để gọi deno có thể không kế thừa đúng PATH hiện tại,
+        # dẫn tới không tìm thấy deno dù 'deno --version' chạy ổn ở chỗ khác.
+        'js_runtimes': {'deno': {'path': deno_path}} if deno_path else {'deno': {}},
         'remote_components': ['ejs:github'],
         'extractor_args': {'youtube': {'player_client': ['tv', 'android', 'web']}},
     }
