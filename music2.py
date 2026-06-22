@@ -13,6 +13,48 @@ import os
 import shutil
 import subprocess
 import time
+import stat
+
+
+def ensure_deno_installed():
+    """
+    QUAN TRỌNG: Trên Render, Build Command và Start Command (runtime) chạy
+    trên 2 compute KHÁC NHAU. Mọi thứ Build Command cài vào filesystem (như
+    'curl ... | sh' cài deno) KHÔNG được giữ lại khi chuyển sang compute chạy
+    Start Command — đây là lý do dù build log báo "Deno installed successfully"
+    nhưng runtime vẫn không thấy deno (shutil.which trả None).
+    Phải tự cài deno NGAY TRONG runtime (script này), giống cách main.py làm.
+    """
+    deno_home = os.path.expanduser("~/.deno/bin")
+    deno_exe = os.path.join(deno_home, "deno")
+
+    if deno_home not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = deno_home + os.pathsep + os.environ.get("PATH", "")
+
+    if os.path.exists(deno_exe):
+        print("[TEST] ✅ Deno đã có sẵn ở runtime, không cần cài lại.")
+        return deno_exe
+
+    print("[TEST] ⬇️ Deno chưa có ở runtime, đang tự cài...")
+    try:
+        install_script = subprocess.run(
+            ["curl", "-fsSL", "https://deno.land/install.sh"],
+            capture_output=True, text=True, timeout=30, check=True
+        ).stdout
+        subprocess.run(
+            ["sh", "-s", "--", "-y"],
+            input=install_script, text=True, timeout=120, check=True
+        )
+        if os.path.exists(deno_exe):
+            os.chmod(deno_exe, os.stat(deno_exe).st_mode | stat.S_IEXEC)
+            print("[TEST] ✅ Đã cài Deno thành công ở runtime.")
+            return deno_exe
+        else:
+            print("[TEST] ⚠️ Cài xong nhưng không thấy binary.")
+            return None
+    except Exception as e:
+        print(f"[TEST] ❌ Lỗi khi tự cài Deno: {e}")
+        return None
 
 try:
     import imageio_ffmpeg
@@ -25,15 +67,17 @@ import yt_dlp
 
 def find_deno_path():
     """
-    Tìm đường dẫn deno thực tế bằng shutil.which (giống cách PATH thật được
-    dùng), in ra để debug, và trả về path đó để truyền rõ ràng vào js_runtimes
-    — vì chỉ để js_runtimes: {'deno': {}} có thể không đủ nếu yt-dlp/subprocess
-    của nó không kế thừa đúng PATH đang có trong tiến trình Python hiện tại.
+    Tìm đường dẫn deno thực tế. Gọi ensure_deno_installed() trước để đảm bảo
+    deno có ở compute runtime hiện tại (vì build-time deno không tồn tại ở đây).
     """
+    installed_path = ensure_deno_installed()
+    if installed_path:
+        print(f"[TEST] 🔎 Dùng deno vừa cài/tìm thấy: {installed_path}")
+        return installed_path
+
     deno_path = shutil.which("deno")
     print(f"[TEST] 🔎 shutil.which('deno') = {deno_path}")
 
-    # Fallback: kiểm tra trực tiếp đường dẫn cài đặt mặc định của deno trên Linux
     fallback_path = os.path.expanduser("~/.deno/bin/deno")
     print(f"[TEST] 🔎 Fallback path tồn tại? {os.path.exists(fallback_path)} ({fallback_path})")
 
